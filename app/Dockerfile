@@ -1,5 +1,6 @@
 # Multi-stage Docker build for Node.js application
 
+
 # Stage 1: Build stage
 FROM public.ecr.aws/docker/library/node:18-alpine AS builder
 
