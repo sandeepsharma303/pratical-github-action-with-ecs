@@ -16,4 +16,4 @@ jobs:
 
       - name: Build Docker Image
         run: | 
-          docker build -t ecs-new:latest .
+           docker build -t ecs-new:latest -f app/Dockerfile app
