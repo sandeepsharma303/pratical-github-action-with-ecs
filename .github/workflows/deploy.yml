@@ -36,7 +36,6 @@ jobs:
         run: |
           echo "Image pushed successfully"
           echo "${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}"
-          
   unit-test:
     needs: build
     runs-on: ubuntu-latest
