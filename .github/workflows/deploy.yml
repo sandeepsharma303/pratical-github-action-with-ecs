@@ -7,8 +7,8 @@ on:
         required: true
         type: string
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}        
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}        
 jobs:
   deploy:
     runs-on: ubuntu-latest
