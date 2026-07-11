@@ -5,6 +5,7 @@ on:
     branches:
       - dev
 
+
 jobs:
   deploy:
     uses: ./.github/workflows/deploy.yml
