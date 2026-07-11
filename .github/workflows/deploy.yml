@@ -1,43 +1,62 @@
-name: Build and Push Docker Image
+name: Reusable ECS Deployment
+
 on:
-  push:
-    branches:
-      - dev
-      - main
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Checkout Code
+
+      - name: Checkout
         uses: actions/checkout@v4
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-           aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
-        id: login-ecr
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
+
       - name: Build Docker Image
         run: |
-          cd app
-          docker build -t $ECR_REPOSITORY:${{ github.sha }} .
-          docker tag $ECR_REPOSITORY:${{ github.sha }} \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
+          docker build -t ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} .
+
       - name: Push Docker Image
         run: |
-          docker push \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
-      - name: Image Details
+          docker push ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Download Task Definition
         run: |
-          echo "Image pushed successfully"
-          echo "${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}"
-  unit-test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Unit Test"
+          aws ecs describe-task-definition \
+            --task-definition ${{ secrets.TASK_DEFINITION }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Update Task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.CONTAINER_NAME }}
+          image: ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Deploy ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
