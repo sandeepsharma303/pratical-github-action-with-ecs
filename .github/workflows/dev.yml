@@ -1,14 +1,59 @@
-name: Deploy Dev
+name: Deploy to Dev
 
 on:
   push:
     branches:
       - dev
 
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Changed Services
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            user-service:
+              - 'user-service/**'
+
+            payment-service:
+              - 'payment-service/**'
+
+            order-service:
+              - 'order-service/**'
+
+            inventory-service:
+              - 'inventory-service/**'
+
+            notification-service:
+              - 'notification-service/**'
+
   deploy:
+    needs: detect-changes
+
+    if: needs.detect-changes.outputs.services != '[]'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services) }}
+
     uses: ./.github/workflows/deploy.yml
+
     with:
       environment: Development
+      service: ${{ matrix.service }}
+
     secrets: inherit
